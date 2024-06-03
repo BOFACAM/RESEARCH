@@ -21,11 +21,30 @@ IAC_TOOLS = {
     'Google Cloud Deployment Manager': ['.yaml'],
     'Ansible': ['.yaml', '.yml'],
     'Chef': ['.rb'],
-    'Puppet': ['.conf', '.pp'],
+    'Puppet': ['.conf', '.pp'], #im gonna have to include full extension like puppet.conf
     'SaltStack': ['.sls'],
     'Bicep': ['.bicep'],
     'OpenTofu': ['.tf', '.tf.json'],
-    'Vagrant': ['.vm', '.ssh', '.winrm', '.winssh', '.vagrant']
+    'Vagrant': ['.vm', '.ssh', '.winrm', '.winssh', '.vagrant'],
+    'Docker Compose': ['.yaml', '.yml']  
+}
+
+
+UNIQUE_KEYS = {
+    'Terraform': ['resource', 'provider', 'variable', 'output', 'data','locals'],
+    'Pulumi': ['name', 'runtime', 'description', 'config', 'main'],
+    'Crossplane': ['apiVersion', 'kind', 'metadata', 'spec'],
+    'AWS CloudFormation': ['AWSTemplateFormatVersion', 'Resources', 'Outputs'],
+    'Azure Resource Manager': ['$schema', 'contentVersion', 'resources'],
+    'Google Cloud Deployment Manager': ['resources', 'imports'],
+    'Ansible': ['name', 'hosts', 'vars', 'tasks'],
+    'Chef': ['file', 'name', 'action'],
+    'Puppet': ['file', 'service', 'package', 'node', 'class'],
+    'SaltStack': ['pkg.installed', 'service.running', 'file.managed'],
+    'Bicep': ['targetScope', 'param', 'var', 'resource', 'module', 'output'],
+    'OpenTofu': ['resource', 'module', 'provider'],
+    'Vagrant': ['Vagrant.configure', 'config.vm.box', 'config.vm.network'],
+    'Docker Compose': ['version', 'services', 'volumes', 'networks'] 
 }
 
 
@@ -36,17 +55,23 @@ def get_home_directory(): #this should just return like your basic home director
 def process_dataframe(csv):
     home_dir = get_home_directory()
     data = pd.read_csv(csv)
+    results = []
     for index,rows in data.iterrows():
         repo_url = rows["URL"]
         identifer = rows["Identifier"]
         target_dir = os.path.join(home_dir,identifer.replace('/', '\\'))
         clone_repo(repo_url,target_dir)
-        get_default_branch(target_dir)
+        #get_default_branch(target_dir)
+        tools_used = identify_iac_tools(target_dir)
 
-        list_of_yaml_files = print_yaml_files(target_dir)
-        print(f"Identifer:{identifer}, FILES:{list_of_yaml_files}") 
+        #list_of_yaml_files = print_yaml_files(target_dir)
+        #print(f"Identifer:{identifer}, FILES:{list_of_yaml_files}") 
+
+        results.append({'Identifier': identifer, 'Possible IAC Tools Used':tools_used})
 
         shutil.rmtree(target_dir,onerror=onerror)
+    
+    print(results)
       
 
 def onerror(func, path, exc_info):
@@ -101,7 +126,29 @@ def get_default_branch(repo_path):
         yaml_files.extend(Path(workdir).rglob(extensions))
     return yaml_files"""
 
-def print_yaml_files(workdir):
+def identify_iac_tools(work_dir):
+    tools_found = set()
+    for (dir_path, dir_names, file_names) in os.walk(work_dir):
+        for file_name in file_names:
+            file_ext = os.path.splitext(file_name)[1]
+            file_path =os.path.join(dir_path,file_name)
+            for tool,extensions in IAC_TOOLS.items():
+                if file_ext in extensions:
+                    if identify_tool_by_template(tool,file_path):
+                        tools_found.add(tool)
+    return list(tools_found)
+
+def identify_tool_by_template(tool, file_path):
+    patterns = UNIQUE_KEYS.get(tool,[])
+    with open(file_path,'r',encoding= 'utf-8') as file:
+        template = file.read()
+        print(template)
+        """for pattern in patterns:
+            if pattern in template:
+                return True"""
+
+
+"""def print_yaml_files(workdir):
         # list to store files name
     res = []
     empty_dict = {"dir_path": [], "sub_dir_paths": [], "yml_file_names": []}
@@ -116,7 +163,7 @@ def print_yaml_files(workdir):
 
             if file_name[-4:] == ".yml":
                 res.append(file_name)
-    return res
+    return res"""
 
 
 def main(): 
