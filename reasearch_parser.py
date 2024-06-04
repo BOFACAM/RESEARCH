@@ -7,14 +7,16 @@ import subprocess
 from pathlib import Path
 import shutil
 import stat
+from tqdm import tqdm
+
 
 
 LOG_FILE_PATH = r'C:\Users\camyi\OneDrive\Documents\ClonedRepos\log.txt'
 
 #lets define the file extensions
 IAC_TOOLS = {
-    'Terraform': ['.tf', '.tf.json'],
-    'Pulumi': ['.yaml', '.yml', '.ts', '.js', '.py', '.cs'],
+    'Terraform': ['.tf', '.tf.json'],#  we might have to look at like specific files within the directories of the repo that each tool must have? or most likely has?
+    'Pulumi': ['.yaml', '.yml',],
     'Crossplane': ['.yaml', '.yml'],
     'AWS CloudFormation': ['.yaml', '.yml', '.json'],
     'Azure Resource Manager': ['.json'],
@@ -56,22 +58,31 @@ def process_dataframe(csv):
     home_dir = get_home_directory()
     data = pd.read_csv(csv)
     results = []
-    for index,rows in data.iterrows():
+    iac_dataset = {}
+    for index,rows in tqdm(data.iterrows(),total = data.shape[0],desc= "Processing REPOS"):
         repo_url = rows["URL"]
         identifer = rows["Identifier"]
         target_dir = os.path.join(home_dir,identifer.replace('/', '\\'))
         clone_repo(repo_url,target_dir)
-        #get_default_branch(target_dir)
-        tools_used = identify_iac_tools(target_dir)
 
-        #list_of_yaml_files = print_yaml_files(target_dir)
-        #print(f"Identifer:{identifer}, FILES:{list_of_yaml_files}") 
+        list_of_possible = store_extenstion_format_files(target_dir)
+        iac_dataset[identifer] = list_of_possible
 
-        results.append({'Identifier': identifer, 'Possible IAC Tools Used':tools_used})
+
+
+        #tools_used = identify_iac_tools(target_dir)
+
+        #results.append({'Identifier': identifer, 'Possible IAC Tools Used':tools_used})
 
         shutil.rmtree(target_dir,onerror=onerror)
+    df = pd.DataFrame.from_dict(iac_dataset, orient='index').transpose()
+    print(df)
+        
     
-    print(results)
+    #print(iac_dataset)
+
+def process_repo(repo_urll, identifer, home_dir):
+    pass
       
 
 def onerror(func, path, exc_info):
@@ -91,8 +102,6 @@ def onerror(func, path, exc_info):
         func(path)
     else:
         raise
-
-
 
 
 def clone_repo(url, target_dir): #clones directory to target directory 
@@ -120,21 +129,15 @@ def get_default_branch(repo_path):
             f.write(str("-- Failed to get default branch information") + ";" + repo_path + '\n')
 
 
-"""def locate_yaml_files(workdir):
-    yaml_files = []
-    for extensions in ('*.yml', '*.yaml'):
-        yaml_files.extend(Path(workdir).rglob(extensions))
-    return yaml_files"""
-
 def identify_iac_tools(work_dir):
     tools_found = set()
-    for (dir_path, dir_names, file_names) in os.walk(work_dir):
+    for (dir_path, __, file_names) in os.walk(work_dir):
         for file_name in file_names:
-            file_ext = os.path.splitext(file_name)[1]
+            file_ext = os.path.splitext(file_name)[1] # 0 is the root and then the [1] is extension when you use splittext
             file_path =os.path.join(dir_path,file_name)
             for tool,extensions in IAC_TOOLS.items():
                 if file_ext in extensions:
-                    if identify_tool_by_template(tool,file_path):
+                    if identify_tool_by_template(tool,file_path):#compare the tool template to the file that we get per file path
                         tools_found.add(tool)
     return list(tools_found)
 
@@ -142,32 +145,27 @@ def identify_tool_by_template(tool, file_path):
     patterns = UNIQUE_KEYS.get(tool,[])
     with open(file_path,'r',encoding= 'utf-8') as file:
         template = file.read()
-        print(template)
-        """for pattern in patterns:
+        #print(template) #this correctly gets the file info but must now think about how to create an algorithm/code that can give us the best tool per repo
+        for pattern in patterns:
             if pattern in template:
-                return True"""
+                return True
 
-
-"""def print_yaml_files(workdir):
-        # list to store files name
-    res = []
-    empty_dict = {"dir_path": [], "sub_dir_paths": [], "yml_file_names": []}
-    for (dir_path, dir_names, file_names) in os.walk(workdir):
-        
-
-        empty_dict["dir_path"].append(dir_path)
-        empty_dict["sub_dir_paths"].extend(dir_names)
-        empty_dict["yml_file_names"].extend(file_names)
-
+def store_extenstion_format_files(work_dir): # should return a dict holding all of the possible iac format files based off extensions?
+    list_of_file_names_per_repo =[]
+    for dir_path,__,file_names in os.walk(work_dir):
         for file_name in file_names:
+            file_ext = os.path.splitext(file_name)[1]
+            file_path = os.path.join(dir_path,file_name)
+            for extensions in IAC_TOOLS.values():
+                if file_ext in extensions:
+                    list_of_file_names_per_repo.append(file_path)
+    return list_of_file_names_per_repo
 
-            if file_name[-4:] == ".yml":
-                res.append(file_name)
-    return res"""
+    
 
 
 def main(): 
-    process_dataframe("samplecsv.csv")
+    process_dataframe("checkingrepo.csv")
 
 main()
 
