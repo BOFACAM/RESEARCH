@@ -1,13 +1,11 @@
 import pandas as pd
-import yaml
-import pydriller as pydrill
 from git import Repo
 import os
 import subprocess
-from pathlib import Path
 import shutil
 import stat
 from tqdm import tqdm
+import json
 
 
 
@@ -65,25 +63,28 @@ def process_dataframe(csv):
         target_dir = os.path.join(home_dir,identifer.replace('/', '\\'))
         clone_repo(repo_url,target_dir)
 
-        list_of_possible = store_extenstion_format_files(target_dir)
-        iac_dataset[identifer] = list_of_possible
+        list_of_possible,found_extensions = store_extenstion_format_files(target_dir,repo_url)
 
+        iac_dataset[identifer] = {
+            'id':identifer,
+            'url' : repo_url,
+            'found_extensions': found_extensions,
+            'files' : list_of_possible
 
+        }
 
         #tools_used = identify_iac_tools(target_dir)
-
         #results.append({'Identifier': identifer, 'Possible IAC Tools Used':tools_used})
 
         #shutil.rmtree(target_dir,onerror=onerror)
-    df = pd.DataFrame.from_dict(iac_dataset, orient='index').transpose()
-    print(df)
+        os.rmdir(target_dir)
+    
+    with open('iac_dataset.json','w') as json_file:
+        json.dump(iac_dataset,json_file,indent= 1)
         
     
-    #print(iac_dataset)
+    
 
-def process_repo(repo_urll, identifer, home_dir):
-    pass
-      
 
 def onerror(func, path, exc_info):
     """
@@ -113,23 +114,7 @@ def clone_repo(url, target_dir): #clones directory to target directory
     return repo
 
 
-def get_default_branch(repo_path):
-    """
-    Identifies the default branch of the concerning repository
-    """
-    # Command to get the default branch name
-    result = subprocess.run(["git", "remote", "show", "origin"], cwd=repo_path, text=True, capture_output=True)
-    if result.returncode == 0:
-        for line in result.stdout.split('\n'):
-            if 'HEAD branch' in line:
-                return line.split(':')[1].strip()
-    else:
-        print("--Failed to get default branch information")
-        with open(LOG_FILE_PATH, 'a') as f:
-            f.write(str("-- Failed to get default branch information") + ";" + repo_path + '\n')
-
-
-def identify_iac_tools(work_dir):
+"""def identify_iac_tools(work_dir):
     tools_found = set()
     for (dir_path, __, file_names) in os.walk(work_dir):
         for file_name in file_names:
@@ -145,27 +130,29 @@ def identify_tool_by_template(tool, file_path):
     patterns = UNIQUE_KEYS.get(tool,[])
     with open(file_path,'r',encoding= 'utf-8') as file:
         template = file.read()
-        #print(template) #this correctly gets the file info but must now think about how to create an algorithm/code that can give us the best tool per repo
         for pattern in patterns:
             if pattern in template:
-                return True
+                return True"""
 
-def store_extenstion_format_files(work_dir): # should return a dict holding all of the possible iac format files based off extensions?
+def store_extenstion_format_files(work_dir,repo_url): # should return a dict holding all of the possible iac format files based off extensions?
     list_of_file_names_per_repo =[]
+    found_extensions =set()
     for dir_path,__,file_names in os.walk(work_dir):
         for file_name in file_names:
             file_ext = os.path.splitext(file_name)[1]
             file_path = os.path.join(dir_path,file_name)
             for extensions in IAC_TOOLS.values():
                 if file_ext in extensions:
-                    list_of_file_names_per_repo.append(file_path)
-    return list_of_file_names_per_repo
+                    found_extensions.add(file_ext)
+                    github_path = file_path.replace(work_dir,repo_url)
+                    list_of_file_names_per_repo.append(github_path)
+    return list_of_file_names_per_repo,list(found_extensions)
 
     
 
 
 def main(): 
-    process_dataframe("checkingrepo.csv")
+    process_dataframe("samplecsv5.csv")
 
 main()
 
