@@ -12,19 +12,13 @@ REPOS THAT DO WORK AUTOMATED:
 317 - 379
 
 REPOS THAT DONT WORK AUTOMATED:
-10,86,97,109,128,185,233,244(file_name too LONG?!),297,318(not found)
+10(not found),86
+
+NO FILES FOUND RN:
+look at 109,128,185,233,244,297,318 im pretty sure all of these were file too long or the path problem?
+
+ID,URL, JSON, BOOLEAN(YES OR NO IAC TOOL), TOOL USED BASED OF PERCENTAGE?
+May have to add more tools?
+Software AG Command Central (CCE)
 
 
-
-
-error messages i keep getting:   
-
-cmdline: git clone -v -- https://github.com/digirati-co-uk/madoc-platform C:\Users\camyi\digirati-co-uk\madoc-platform
-  stderr: 'Cloning into 'C:\Users\camyi\digirati-co-uk\madoc-platform'...
-POST git-upload-pack (185 bytes)
-POST git-upload-pack (gzip 7327 to 3592 bytes)
-error: invalid path 'services/madoc-ts/migrations/2021-08-20T15:43.create-api-key.sql'
-fatal: unable to checkout working tree
-warning: Clone succeeded, but checkout failed.
-You can inspect what was checked out with 'git status'
-and retry with 'git restore --source=HEAD :/'

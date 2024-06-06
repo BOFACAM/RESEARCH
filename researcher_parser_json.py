@@ -6,7 +6,7 @@ import shutil
 import stat
 from tqdm import tqdm
 import json
-
+import errno
 
 
 LOG_FILE_PATH = r'C:\Users\camyi\OneDrive\Documents\ClonedRepos\log.txt'
@@ -55,37 +55,39 @@ def get_home_directory(): #this should just return like your basic home director
 def process_dataframe(csv):
     home_dir = get_home_directory()
     data = pd.read_csv(csv)
-    results = []
+    #results = []
+    
     iac_dataset = {}
-    for index,rows in tqdm(data.iterrows(),total = data.shape[0],desc= "Processing REPOS"):
+    
+    for __,rows in tqdm(data.iterrows(),total = data.shape[0],desc= "Processing REPOS"):
         repo_url = rows["URL"]
-        identifer = rows["Identifier"]
+        identifer = rows["ProjectID"]
         target_dir = os.path.join(home_dir,identifer.replace('/', '\\'))
-        clone_repo(repo_url,target_dir)
+        try:
+            clone_repo(repo_url,target_dir)
 
-        list_of_possible,found_extensions = store_extenstion_format_files(target_dir,repo_url)
+            list_of_possible,found_extensions = store_extenstion_format_files(target_dir,repo_url)
 
-        iac_dataset[identifer] = {
-            'id':identifer,
-            'url' : repo_url,
-            'found_extensions': found_extensions,
-            'files' : list_of_possible
 
-        }
+            iac_dataset[identifer] = {
+                'id':identifer,
+                'url' : repo_url,
+                'found_extensions': list(found_extensions),
+                'files' : list_of_possible
 
-        #tools_used = identify_iac_tools(target_dir)
-        #results.append({'Identifier': identifer, 'Possible IAC Tools Used':tools_used})
-
-        #shutil.rmtree(target_dir,onerror=onerror)
-        os.rmdir(target_dir)
+            }
+        
+            shutil.rmtree(target_dir ,onerror=onerror)
+        except(OSError, Exception) as e:
+            with open('manual_repo.txt','a') as manual_report:
+                manual_report.write(f"{repo_url}\n")
+       
+                       
     
     with open('iac_dataset.json','w') as json_file:
         json.dump(iac_dataset,json_file,indent= 1)
         
     
-    
-
-
 def onerror(func, path, exc_info):
     """
     Error handler for ``shutil.rmtree``.
@@ -114,28 +116,8 @@ def clone_repo(url, target_dir): #clones directory to target directory
     return repo
 
 
-"""def identify_iac_tools(work_dir):
-    tools_found = set()
-    for (dir_path, __, file_names) in os.walk(work_dir):
-        for file_name in file_names:
-            file_ext = os.path.splitext(file_name)[1] # 0 is the root and then the [1] is extension when you use splittext
-            file_path =os.path.join(dir_path,file_name)
-            for tool,extensions in IAC_TOOLS.items():
-                if file_ext in extensions:
-                    if identify_tool_by_template(tool,file_path):#compare the tool template to the file that we get per file path
-                        tools_found.add(tool)
-    return list(tools_found)
-
-def identify_tool_by_template(tool, file_path):
-    patterns = UNIQUE_KEYS.get(tool,[])
-    with open(file_path,'r',encoding= 'utf-8') as file:
-        template = file.read()
-        for pattern in patterns:
-            if pattern in template:
-                return True"""
-
 def store_extenstion_format_files(work_dir,repo_url): # should return a dict holding all of the possible iac format files based off extensions?
-    list_of_file_names_per_repo =[]
+    list_of_file_names_per_repo ={}
     found_extensions =set()
     for dir_path,__,file_names in os.walk(work_dir):
         for file_name in file_names:
@@ -144,15 +126,16 @@ def store_extenstion_format_files(work_dir,repo_url): # should return a dict hol
             for extensions in IAC_TOOLS.values():
                 if file_ext in extensions:
                     found_extensions.add(file_ext)
-                    github_path = file_path.replace(work_dir,repo_url)
-                    list_of_file_names_per_repo.append(github_path)
+                    github_path = file_path.replace(work_dir,repo_url).replace("\\","/")
+                    if file_ext not in list_of_file_names_per_repo.keys():
+                        list_of_file_names_per_repo[file_ext] = []
+                    if github_path not in list_of_file_names_per_repo[file_ext]:
+                        list_of_file_names_per_repo[file_ext].append(github_path)
     return list_of_file_names_per_repo,list(found_extensions)
-
-    
 
 
 def main(): 
-    process_dataframe("samplecsv5.csv")
+    process_dataframe("checkingrepo.csv")
 
 main()
 
